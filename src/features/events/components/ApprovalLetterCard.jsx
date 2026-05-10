@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { approveLetter, getMySignature, signApproveLetter } from "../../../api/approvalService";
-import { buildServerFileUrl } from "../../../api/fileUrl";
-import { getResponsiblePerson } from "../../../api/eventService";
+import { approveLetter, getMySignature, signApproveLetter } from "../../../shared/api/approvalService";
+import { buildServerFileUrl } from "../../../shared/api/fileUrl";
+import { getResponsiblePerson } from "../../../shared/api/eventService";
 import ApprovalLetterModal from "./ApprovalLetterModal";
 import ApprovalLetterSummary from "./ApprovalLetterSummary";
 import ApprovalPdfPreview from "./ApprovalPdfPreview";
@@ -12,6 +12,7 @@ const ApprovalLetterCard = ({ letter, onReject, onApprove }) => {
   const [signaturePos, setSignaturePos] = useState(null);
   const [userSignature, setUserSignature] = useState(null);
   const [isResponsibleApprover, setIsResponsibleApprover] = useState(false);
+  const [bookingConflict, setBookingConflict] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const isSameApprover = (currentApprover, responsiblePerson) => {
@@ -40,6 +41,7 @@ const ApprovalLetterCard = ({ letter, onReject, onApprove }) => {
       if (!letter) return;
 
       setSignaturePos(null);
+      setBookingConflict(null);
 
       try {
         const responsiblePerson = await getResponsiblePerson(letter.eventPlace);
@@ -95,13 +97,26 @@ const ApprovalLetterCard = ({ letter, onReject, onApprove }) => {
             remarks,
           });
 
+      if (data?.conflict) {
+        setBookingConflict(data);
+        return;
+      }
+
       setRemark("");
       setSignaturePos(null);
+      setBookingConflict(null);
       setShowApproveModal(false);
 
       if (onApprove) onApprove(letter.letterId, data);
     } catch (err) {
       console.error(err);
+      const conflictData = err?.response?.data;
+
+      if (conflictData?.conflict) {
+        setBookingConflict(conflictData);
+        return;
+      }
+
       alert("Approval failed");
     } finally {
       setLoading(false);
@@ -114,6 +129,7 @@ const ApprovalLetterCard = ({ letter, onReject, onApprove }) => {
   const signatureUrl = buildServerFileUrl(userSignature?.signatureImagePath);
   const openApproveModal = () => {
     setSignaturePos(null);
+    setBookingConflict(null);
     setShowApproveModal(true);
   };
 
@@ -137,6 +153,7 @@ const ApprovalLetterCard = ({ letter, onReject, onApprove }) => {
           remark={remark}
           signatureUrl={signatureUrl}
           signaturePosition={signaturePos}
+          bookingConflict={bookingConflict}
           requiresSignature={!isResponsibleApprover}
           loading={loading}
           onRemarkChange={setRemark}

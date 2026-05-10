@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import PdfViewer from "../../../components/pdf/PdfViewer";
+import PdfViewer from "../../../shared/ui/PdfViewer";
 
 const SIGNATURE_WIDTH = 150;
 const SIGNATURE_HEIGHT = 50;

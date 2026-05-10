@@ -1,5 +1,5 @@
 import React from "react";
-import { X, PenTool, MessageSquare, ShieldCheck, AlertCircle } from "lucide-react";
+import { X, PenTool, MessageSquare, ShieldCheck, AlertCircle, CalendarClock, MapPin } from "lucide-react";
 import ApprovalPdfPreview from "./ApprovalPdfPreview";
 
 const ApprovalLetterModal = ({
@@ -7,6 +7,7 @@ const ApprovalLetterModal = ({
   remark,
   signatureUrl,
   signaturePosition,
+  bookingConflict,
   requiresSignature = true,
   loading,
   onRemarkChange,
@@ -15,6 +16,9 @@ const ApprovalLetterModal = ({
   onConfirm,
 }) => {
   const canPlaceSignature = requiresSignature && Boolean(signatureUrl);
+  const conflicts = Array.isArray(bookingConflict?.conflicts)
+    ? bookingConflict.conflicts
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -74,6 +78,42 @@ const ApprovalLetterModal = ({
           {/* Right Side: Approval Controls (4 cols) */}
           <div className="lg:col-span-4 p-8 flex flex-col bg-slate-900 overflow-y-auto">
             <div className="space-y-8 flex-1">
+              {bookingConflict?.conflict && (
+                <section className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="mt-0.5 shrink-0 text-amber-400" size={18} />
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-200">Place Already Booked</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+                        {bookingConflict.message || "This place already has another event at the selected date and time."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {conflicts.length > 0 && (
+                    <div className="space-y-2">
+                      {conflicts.map((conflict) => (
+                        <div
+                          key={`${conflict.calendarEventId || conflict.letterId}-${conflict.eventDate}-${conflict.eventTime}`}
+                          className="rounded-lg border border-amber-400/20 bg-slate-950/40 p-3"
+                        >
+                          <p className="text-xs font-bold text-slate-100">{conflict.title || "Existing booking"}</p>
+                          <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-300">
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarClock size={12} className="text-amber-300" />
+                              {conflict.eventDate} {conflict.eventTime?.slice(0, 5)} - {conflict.endTime?.slice(0, 5)}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin size={12} className="text-amber-300" />
+                              {conflict.placeName || "Same place"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
               
               {requiresSignature && (
                 <section className="space-y-3">
