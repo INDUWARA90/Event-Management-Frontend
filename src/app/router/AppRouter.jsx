@@ -37,6 +37,7 @@ const getStoredRoles = () => {
 };
 
 const isSecretary = () => hasRole(getStoredRoles(), "ROLE_SECRETARY");
+const isAdmin = () => hasRole(getStoredRoles(), "ROLE_ADMIN");
 
 function RequireAuth({ children }) {
   return hasSession() ? children : <Navigate to="/login" replace />;
@@ -45,6 +46,12 @@ function RequireAuth({ children }) {
 // Only a club secretary can create/send an event request.
 function RequireSecretary({ children }) {
   return isSecretary() ? children : <Navigate to="/dashboard/calendar" replace />;
+}
+
+// Route-level gate for admin-only screens (club-create, manage-clubs, users-create), in addition
+// to each page's own self-check - a guard here means a page can never be reachable by mistake.
+function RequireAdmin({ children }) {
+  return isAdmin() ? children : <Navigate to="/dashboard/calendar" replace />;
 }
 
 function DashboardIndexRedirect() {
@@ -115,9 +122,30 @@ function AppRouter() {
           <Route path="to-approve" element={<ToApprovePage />} />
           <Route path="approved-by-me" element={<ApprovedByMePage />} />
           <Route path="rejected-by-me" element={<RejectedByMePage />} />
-          <Route path="club-create" element={<ClubCreatePage />} />
-          <Route path="manage-clubs" element={<ManageClubsPage />} />
-          <Route path="users-create" element={<AdminCreateUserPage />} />
+          <Route
+            path="club-create"
+            element={(
+              <RequireAdmin>
+                <ClubCreatePage />
+              </RequireAdmin>
+            )}
+          />
+          <Route
+            path="manage-clubs"
+            element={(
+              <RequireAdmin>
+                <ManageClubsPage />
+              </RequireAdmin>
+            )}
+          />
+          <Route
+            path="users-create"
+            element={(
+              <RequireAdmin>
+                <AdminCreateUserPage />
+              </RequireAdmin>
+            )}
+          />
           <Route path="my-club" element={<ClubProfilePage />} />
           <Route path="*" element={<DashboardIndexRedirect />} />
         </Route>

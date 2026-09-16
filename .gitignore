@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Secrets - never commit real credentials. Every VITE_* value here also ships in the built
+# client bundle, so this matters even more once real keys get added.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

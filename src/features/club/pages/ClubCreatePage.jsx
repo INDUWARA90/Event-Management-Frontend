@@ -2,9 +2,20 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2 } from "lucide-react";
 import { createClub, getClubSecretaries, getClubSeniorTreasurers } from "../api/clubService";
+import { hasRole } from "../../../shared/utils/roles";
+
+const readStoredUser = () => {
+  try {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
 
 function ClubCreatePage() {
   const navigate = useNavigate();
+  const isAdmin = hasRole(readStoredUser()?.roles || [], "ROLE_ADMIN");
 
   const [form, setForm] = useState({
     clubName: "",
@@ -50,9 +61,11 @@ function ClubCreatePage() {
       }
     };
 
-    loadSecretaries();
-    loadSeniorTreasurers();
-  }, []);
+    if (isAdmin) {
+      loadSecretaries();
+      loadSeniorTreasurers();
+    }
+  }, [isAdmin]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -80,6 +93,16 @@ function ClubCreatePage() {
       setLoading(false);
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen theme-bg-page theme-text p-6">
+        <div className="max-w-4xl mx-auto rounded-2xl border theme-border-danger theme-bg-danger-soft p-6 theme-text-danger">
+          This section is available only for ROLE_ADMIN users.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen theme-bg-page p-8">
