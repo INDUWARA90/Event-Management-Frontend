@@ -1,0 +1,11 @@
+services:
+  frontend:
+    image: ghcr.io/${FRONTEND_IMAGE_NAME:-induwara90/event-management-frontend}:latest
+    pull_policy: missing
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: event_manage_frontend
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
