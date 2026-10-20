@@ -101,3 +101,17 @@ jobs:
 
             sudo docker ps --filter "name=event-frontend"
             echo "Frontend deployment successful."
+            
+      - name: Diagnose SSH private key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$SSH_PRIVATE_KEY" > deploy_key
+          chmod 600 deploy_key
+          if ssh-keygen -y -f deploy_key > /dev/null 2>key_error.txt; then
+            echo "SUCCESS: GitHub secret contains a key usable without a passphrase."
+          else
+            echo "FAILED: GitHub secret cannot be read as a passphrase-free key."
+            cat key_error.txt
+            exit 1
+          fi
