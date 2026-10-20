@@ -54,7 +54,7 @@ function LandingPage() {
             onClick={() => navigate("/")}
             className="text-xl font-black tracking-tight uppercase"
           >
-            <span className="brand-tech">TECH</span><span className="brand-ems">EMS test</span>
+            <span className="brand-tech">TECH</span><span className="brand-ems">EMS</span>
           </button>
           <button
             type="button"
