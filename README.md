@@ -1,22 +1,26 @@
 # Event Management frontend
 
-The published image is `ghcr.io/induwara90/event-management-frontend:latest`.
+Published image: `ghcr.io/induwara90/event-management-frontend:latest`.
 
-This UI calls the backend at `http://localhost:8081/api`. Run MySQL + backend with the workspace or backend `docker-compose.yml` so that port is live.
+Production builds call the API at same-origin `/api`. Nginx inside the image proxies `/api` and `/uploads` to the `backend` service on the Docker network.
 
-## Run with the GitHub image
-
-From this folder (UI only):
+## Local UI only
 
 ```bash
-docker compose up -d --no-build
+docker compose up -d --build
 ```
 
-From the parent `Event Managemnet` folder (frontend + backend + MySQL):
+Full stack (MySQL + API + UI) from the parent workspace or the backend `deploy/` folder:
 
 ```bash
-docker compose up -d --no-build
+docker compose up -d
 ```
 
-- Frontend: http://localhost:8080
-- Backend API: http://localhost:8081
+- App: http://localhost:8080
+- API (direct): http://localhost:8081
+
+## CI/CD
+
+Push to `main` → GitHub Actions builds/pushes the image → SSHs to the VM and runs `/opt/event-management/deploy.sh`.
+
+Required secrets: `VM_HOST`, `VM_USER`, `VM_SSH_PRIVATE_KEY` (same as backend). See backend `DEPLOY.md`.

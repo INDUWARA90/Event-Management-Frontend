@@ -1,4 +1,4 @@
-name: Publish frontend image
+name: Build, Publish, and Deploy Frontend
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,7 +18,6 @@ jobs:
   publish:
     name: Build and publish frontend image
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
@@ -33,7 +33,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          # Keep a stable name so VM compose does not depend on the GitHub repo slug (EM).
+          images: ghcr.io/induwara90/event-management-frontend
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -56,62 +57,27 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_BASE_URL=/api
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy frontend to EC2
+    name: Deploy frontend to VM
     runs-on: ubuntu-latest
     needs: publish
-
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: Connect to EC2 and deploy
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          script_stop: true
           script: |
-            set -eu
-
-            IMAGE="ghcr.io/induwara90/event-management-frontend:latest"
-
-            echo "Pulling latest frontend image..."
-            sudo docker pull "$IMAGE"
-
-            echo "Replacing frontend container..."
-            sudo docker rm -f event-frontend || true
-
-            sudo docker run -d \
-              --name event-frontend \
-              --restart unless-stopped \
-              -p 8080:8080 \
-              "$IMAGE"
-
-            echo "Checking frontend response..."
-            sleep 3
-
-            if ! curl -fsS http://localhost:8080/ >/dev/null; then
-              echo "Frontend health check failed."
-              sudo docker logs event-frontend
-              exit 1
-            fi
-
-            sudo docker ps --filter "name=event-frontend"
-            echo "Frontend deployment successful."
-            
-      - name: Diagnose SSH private key
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-        run: |
-          printf '%s\n' "$SSH_PRIVATE_KEY" > deploy_key
-          chmod 600 deploy_key
-          if ssh-keygen -y -f deploy_key > /dev/null 2>key_error.txt; then
-            echo "SUCCESS: GitHub secret contains a key usable without a passphrase."
-          else
-            echo "FAILED: GitHub secret cannot be read as a passphrase-free key."
-            cat key_error.txt
-            exit 1
-          fi
+            set -euo pipefail
+            cd /opt/event-management
+            chmod +x deploy.sh
+            ./deploy.sh

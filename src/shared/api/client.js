@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
-export const API_SERVER_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+// Default to same-origin `/api` so production (nginx proxy on the VM) works.
+// Local Vite dev can override with VITE_API_BASE_URL=http://localhost:8081/api
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+export const API_SERVER_URL = API_BASE_URL.replace(/\/api\/?$/, '') || '';
 
 const getCookieValue = (name) => {
   if (typeof document === "undefined") return null;
