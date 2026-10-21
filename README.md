@@ -1,26 +1,27 @@
-# Event Management frontend
+# Event Management Frontend
 
-Published image: `ghcr.io/induwara90/event-management-frontend:latest`.
+React Single Page Application for University Event Management System.
 
-Production builds call the API at same-origin `/api`. Nginx inside the image proxies `/api` and `/uploads` to the `backend` service on the Docker network.
+- **Published Image:** `ghcr.io/induwara90/event-management-frontend:latest`
+- **Default Port:** `8080` (serves the SPA and reverse-proxies `/api` and `/uploads` to backend)
 
-## Local UI only
+## Local Development
 
 ```bash
-docker compose up -d --build
+npm install
+npm run dev
 ```
 
-Full stack (MySQL + API + UI) from the parent workspace or the backend `deploy/` folder:
-
+For testing the full stack with backend and MySQL, use the root workspace `docker-compose.yml`:
 ```bash
 docker compose up -d
 ```
 
-- App: http://localhost:8080
-- API (direct): http://localhost:8081
+- App UI: `http://localhost:8080`
+- API (proxied): `http://localhost:8080/api`
 
-## CI/CD
+## Automated VM Deployment
 
-Push to `main` → GitHub Actions builds/pushes the image → SSHs to the VM and runs `/opt/event-management/deploy.sh`.
-
-Required secrets: `VM_HOST`, `VM_USER`, `VM_SSH_PRIVATE_KEY` (same as backend). See backend `DEPLOY.md`.
+CI/CD is automated using GitHub Actions (`.github/workflows/publish-frontend.yml`):
+1. On `git push origin main`, GitHub Actions builds the production React bundle + Nginx image and pushes it to GHCR.
+2. It automatically SSHs into the production VM and restarts the frontend container with zero downtime.

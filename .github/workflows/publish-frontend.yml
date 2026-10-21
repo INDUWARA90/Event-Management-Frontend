@@ -33,7 +33,6 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # Keep a stable name so VM compose does not depend on the GitHub repo slug (EM).
           images: ghcr.io/induwara90/event-management-frontend
           tags: |
             type=ref,event=branch
@@ -63,7 +62,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy frontend to VM
+    name: Deploy to VM
     runs-on: ubuntu-latest
     needs: publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -75,9 +74,28 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.VM_SSH_PORT || 22 }}
           script_stop: true
           script: |
             set -euo pipefail
             cd /opt/event-management
-            chmod +x deploy.sh
-            ./deploy.sh
+            echo "Pulling updated images..."
+            docker compose pull
+            echo "Updating containers..."
+            docker compose up -d --remove-orphans
+            echo "Waiting for services to become healthy..."
+            for i in $(seq 1 30); do
+              if curl -fsS "http://127.0.0.1:8080/" >/dev/null 2>&1 \
+                 && curl -fsS "http://127.0.0.1:8081/api/check" >/dev/null 2>&1; then
+                echo "Stack is healthy and running!"
+                docker compose ps
+                echo "Pruning unused images..."
+                docker image prune -f >/dev/null 2>&1 || true
+                exit 0
+              fi
+              sleep 3
+            done
+            echo "Health check timed out after 90s!"
+            docker compose ps
+            docker compose logs --tail=60
+            exit 1
