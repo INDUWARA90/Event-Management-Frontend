@@ -14,6 +14,12 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes an older deployment.  Do not allow both to update the
+# same VM at the same time.
+concurrency:
+  group: frontend-production-deployment
+  cancel-in-progress: true
+
 jobs:
   publish:
     name: Build and publish frontend image
@@ -66,28 +72,46 @@ jobs:
     runs-on: ubuntu-latest
     needs: publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          host: ${{ secrets.EC2_HOST || secrets.VM_HOST }}
-          username: ${{ secrets.EC2_USER || secrets.VM_USER }}
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY || secrets.VM_SSH_PRIVATE_KEY }}
-          port: ${{ secrets.EC2_SSH_PORT || secrets.VM_SSH_PORT || '22' }}
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          port: 22
+          envs: GHCR_USER,GHCR_TOKEN
           script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/event-management
-            echo "Pulling updated images..."
-            docker compose pull
-            echo "Updating containers..."
-            docker compose up -d --remove-orphans
-            echo "Waiting for services to become healthy..."
+            cd "$HOME/opt/event-manage"
+
+            if ! docker compose config --services | grep -qx 'react-frontend'; then
+              echo "The react-frontend service is missing from $HOME/opt/event-manage/docker-compose.yml"
+              exit 1
+            fi
+
+            echo "Pulling updated frontend image..."
+            # This short-lived workflow token lets the VM pull a private GHCR
+            # package.  It is removed from the VM as soon as the image is pulled.
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            docker compose pull react-frontend
+            docker logout ghcr.io >/dev/null 2>&1 || true
+
+            echo "Updating frontend container..."
+            docker compose up -d --no-deps react-frontend
+
+            echo "Waiting for frontend service to become healthy..."
             for i in $(seq 1 30); do
-              if curl -fsS "http://127.0.0.1:8080/" >/dev/null 2>&1 \
-                 && curl -fsS "http://127.0.0.1:8081/api/check" >/dev/null 2>&1; then
-                echo "Stack is healthy and running!"
+              if curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null 2>&1; then
+                echo "Frontend is healthy and running!"
                 docker compose ps
                 echo "Pruning unused images..."
                 docker image prune -f >/dev/null 2>&1 || true
@@ -97,5 +121,5 @@ jobs:
             done
             echo "Health check timed out after 90s!"
             docker compose ps
-            docker compose logs --tail=60
+            docker compose logs react-frontend --tail=60
             exit 1
