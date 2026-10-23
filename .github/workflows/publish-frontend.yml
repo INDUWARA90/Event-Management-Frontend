@@ -106,7 +106,9 @@ jobs:
             docker logout ghcr.io >/dev/null 2>&1 || true
 
             echo "Updating frontend container..."
-            docker compose up -d --no-deps react-frontend
+            # Include declared dependencies. This is essential on the first
+            # deployment, when the app and mysql containers do not exist yet.
+            docker compose up -d react-frontend
 
             echo "Waiting for frontend service to become healthy..."
             for i in $(seq 1 30); do
